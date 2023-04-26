@@ -5,6 +5,7 @@ OpenAI Cheat Sheet with the most needed stuff..
 
 
 ## Chat-GPT
+- https://platform.openai.com/docs/api-reference/chat/create
 
 <br><br>
 
