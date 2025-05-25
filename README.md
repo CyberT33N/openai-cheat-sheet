@@ -59,7 +59,8 @@ ___
 <br><br>
 
 
-# Embedding
+# Embeddings
+- https://platform.openai.com/docs/guides/embeddings
 
 
 
