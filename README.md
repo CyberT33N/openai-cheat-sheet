@@ -97,29 +97,48 @@ OpenAI bietet neue, leistungsstärkere Embedding-Modelle:
 
 ## Wie erhält man Embeddings?
 
-Sende den Text-String zusammen mit dem Modellnamen an den Embeddings API-Endpunkt.
+Sende den Text-String zusammen mit dem Modellnamen an den Embeddings API-Endpunkt. Stelle sicher, dass du das OpenAI SDK installiert hast (`npm install openai`).
 
-### Beispiel: Embeddings erstellen (Python)
+### Beispiel: Embeddings erstellen (Node.js)
 
-```python
-import OpenAI
-from openai import OpenAI # Nötig für neuere Versionen
+```javascript
+import OpenAI from 'openai';
 
-client = OpenAI() # API-Key wird typischerweise über Umgebungsvariable OPENAI_API_KEY gelesen
+// API-Key wird typischerweise über die Umgebungsvariable OPENAI_API_KEY gelesen
+const openai = new OpenAI();
 
-embedding_response = client.embeddings.create(
-  model="text-embedding-3-small",
-  input="Dein Text-String hier",
-  encoding_format="float" # oder "base64"
-  # dimensions=256 # Optional: Reduziert die Dimension des Embeddings
-)
+async function createEmbedding() {
+  try {
+    const embeddingResponse = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: "Dein Text-String hier", // Kann auch ein Array von Strings sein
+      encoding_format: "float", // oder "base64"
+      // dimensions: 256, // Optional: Reduziert die Dimension des Embeddings
+    });
 
-embedding_vector = embedding_response.data[0].embedding
-# print(embedding_vector)
+    // Wenn 'input' ein einzelner String war, ist das Embedding in data[0]
+    // Wenn 'input' ein Array von Strings war, ist 'data' ein Array von Embedding-Objekten
+    const embeddingVector = embeddingResponse.data[0].embedding;
+    // console.log(embeddingVector);
+    // console.log("Dimension:", embeddingVector.length);
+    // console.log("Tokens verbraucht:", embeddingResponse.usage.total_tokens);
+    return embeddingVector;
+  } catch (error) {
+    console.error("Fehler beim Erstellen des Embeddings:", error);
+  }
+}
+
+// Beispielaufruf:
+// createEmbedding().then(vector => {
+//   if (vector) {
+//     // Mache etwas mit dem Vektor
+//   }
+// });
 ```
 
-### Beispiel-Antwort (JSON):
+### Beispiel-Antwort (JSON-Struktur, die das SDK zurückgibt):
 
+Das `embeddingResponse`-Objekt im Code oben hätte eine ähnliche Struktur wie dieses JSON:
 ```json
 {
   "object": "list",
@@ -134,6 +153,7 @@ embedding_vector = embedding_response.data[0].embedding
         -0.024047505110502243
       ]
     }
+    // Weitere Objekte, falls 'input' ein Array war
   ],
   "model": "text-embedding-3-small",
   "usage": {
@@ -142,12 +162,12 @@ embedding_vector = embedding_response.data[0].embedding
   }
 }
 ```
-Der Embedding-Vektor kann in einer Vektor-Datenbank gespeichert werden.
+Der Embedding-Vektor (ein Array von Zahlen) kann in einer Vektor-Datenbank gespeichert werden.
 
 ### Dimensionen von Embeddings:
 *   `text-embedding-3-small`: Standardmäßig 1536 Dimensionen.
 *   `text-embedding-3-large`: Standardmäßig 3072 Dimensionen.
-*   Mit dem `dimensions`-Parameter kann die Länge des Embedding-Vektors reduziert werden, ohne dass die konzeptdarstellenden Eigenschaften verloren gehen (Trade-off zwischen Performance und Kosten/Ressourcen).
+*   Mit dem `dimensions`-Parameter im `create`-Aufruf kann die Länge des Embedding-Vektors reduziert werden, ohne dass die konzeptdarstellenden Eigenschaften verloren gehen (Trade-off zwischen Performance und Kosten/Ressourcen).
 
 ## Embedding-Modelle im Überblick
 
@@ -158,61 +178,108 @@ Der Embedding-Vektor kann in einer Vektor-Datenbank gespeichert werden.
 | `text-embedding-ada-002` | 12.500              | 61.0%                | 8192              | 1536                 |
 *(Annahme: ~800 Tokens pro Seite)*
 
-## Wichtige Anwendungsfälle & Techniken
+## Wichtige Anwendungsfälle & Techniken (Node.js)
 
-### 1. Embeddings erstellen & speichern (Python mit Pandas)
+### 1. Embeddings erstellen & (hypothetisch) speichern
 
-```python
-from openai import OpenAI
-import pandas as pd # Annahme: df ist ein DataFrame mit einer Spalte 'combined_text'
+```javascript
+import OpenAI from 'openai';
+// import fs from 'fs/promises'; // Zum Speichern in eine Datei (Beispiel)
 
-client = OpenAI()
+const openai = new OpenAI();
 
-def get_embedding(text, model="text-embedding-3-small", dimensions=None):
-    text = text.replace("\n", " ")
-    params = {"input": [text], "model": model}
-    if dimensions:
-        params["dimensions"] = dimensions
-    return client.embeddings.create(**params).data[0].embedding
+async function getAndStoreEmbedding(text, model = "text-embedding-3-small", dimensions = undefined) {
+  try {
+    const cleanedText = text.replace(/\n/g, " "); // \n können Probleme verursachen oder die Semantik leicht verändern
+    
+    const params = {
+      input: [cleanedText], // API erwartet ein Array von Strings
+      model: model,
+    };
+    if (dimensions) {
+      params.dimensions = dimensions;
+    }
 
-# Beispiel für eine Spalte 'combined' in einem DataFrame 'df'
-# df['embedding'] = df.combined.apply(lambda x: get_embedding(x, model='text-embedding-3-small'))
-# df.to_csv('output/embedded_reviews.csv', index=False)
+    const response = await openai.embeddings.create(params);
+    const embedding = response.data[0].embedding;
 
-# Laden gespeicherter Embeddings (die als String gespeichert wurden)
-# df = pd.read_csv('output/embedded_reviews.csv')
-# df['embedding'] = df.embedding.apply(eval).apply(np.array) # np für numpy
+    // Hypothetisches Speichern (z.B. als Teil eines größeren Objekts in einer JSON-Datei)
+    // const dataToStore = { originalText: cleanedText, embedding: embedding };
+    // await fs.writeFile('output/my_embedding.json', JSON.stringify(dataToStore, null, 2));
+    // console.log('Embedding gespeichert.');
+
+    return embedding;
+  } catch (error) {
+    console.error("Fehler in getAndStoreEmbedding:", error);
+    return null;
+  }
+}
+
+// Beispiel für mehrere Texte:
+// async function processTexts(texts) {
+//   const allEmbeddings = [];
+//   for (const text of texts) {
+//     const embedding = await getAndStoreEmbedding(text); // Oder nur getEmbedding
+//     if (embedding) {
+//       allEmbeddings.push({ text, embedding });
+//     }
+//   }
+//   // Hier könntest du 'allEmbeddings' in einer Vektor-DB speichern
+//   // console.log(JSON.stringify(allEmbeddings, null, 2));
+//   return allEmbeddings;
+// }
+
+// processTexts(["Erste Regel.", "Zweite, etwas längere Regel."]);
 ```
+*Hinweis zum Laden*: Gespeicherte Embeddings (z.B. aus JSON) wären einfach JavaScript Arrays.
 
 ### 2. Dimensionen reduzieren
 
-*   **Empfohlen**: `dimensions`-Parameter beim API-Aufruf `embeddings.create()` nutzen.
-    ```python
-    response = client.embeddings.create(
-        model="text-embedding-3-large",
-        input="Text",
-        dimensions=256 # Fordert ein Embedding mit 256 Dimensionen an
-    )
-    embedding = response.data[0].embedding
+*   **Empfohlen**: `dimensions`-Parameter beim API-Aufruf `openai.embeddings.create()` nutzen.
+    ```javascript
+    async function getReducedDimensionEmbedding() {
+      try {
+        const response = await openai.embeddings.create({
+          model: "text-embedding-3-large", // oder text-embedding-3-small
+          input: "Ein Text, dessen Embedding mit weniger Dimensionen erstellt werden soll.",
+          dimensions: 256, // Gewünschte Anzahl an Dimensionen
+        });
+        const embedding = response.data[0].embedding;
+        // console.log("Reduziertes Embedding:", embedding);
+        // console.log("Neue Dimension:", embedding.length); // Sollte 256 sein
+        return embedding;
+      } catch (error) {
+        console.error("Fehler beim Erstellen des reduzierten Embeddings:", error);
+      }
+    }
+    // getReducedDimensionEmbedding();
     ```
 *   **Manuell (Fortgeschritten)**: Wenn Embeddings bereits generiert wurden, können sie gekürzt und L2-normalisiert werden.
-    ```python
-    import numpy as np
+    ```javascript
+    function normalizeL2(vector) {
+      if (!Array.isArray(vector) || vector.length === 0) {
+        return vector; // Oder Fehler werfen
+      }
 
-    def normalize_l2(x):
-        x = np.array(x)
-        if x.ndim == 1:
-            norm = np.linalg.norm(x)
-            if norm == 0:
-                return x
-            return x / norm
-        else:
-            norm = np.linalg.norm(x, 2, axis=1, keepdims=True)
-            return np.where(norm == 0, x, x / norm)
+      let sumOfSquares = 0;
+      for (const val of vector) {
+        sumOfSquares += val * val;
+      }
+      const norm = Math.sqrt(sumOfSquares);
 
-    # Annahme: 'full_embedding' ist ein bereits generiertes Embedding
-    # cut_dim_embedding = full_embedding[:256]
-    # normalized_embedding = normalize_l2(cut_dim_embedding)
+      if (norm === 0) {
+        // Vektor besteht nur aus Nullen, kann nicht normalisiert werden (oder ist bereits "normal")
+        return vector.slice(); // Kopie zurückgeben
+      }
+
+      return vector.map(val => val / norm);
+    }
+
+    // Annahme: 'fullEmbedding' ist ein bereits generiertes Array von Zahlen
+    // const fullEmbedding = [0.1, 0.02, -0.5, /* ... Hunderte Zahlen ... */, 0.3];
+    // const cutDimEmbedding = fullEmbedding.slice(0, 256); // Schneidet den Vektor auf die ersten 256 Dimensionen ab
+    // const normalizedReducedEmbedding = normalizeL2(cutDimEmbedding);
+    // console.log(normalizedReducedEmbedding);
     ```
     Dies ermöglicht flexible Nutzung, z.B. wenn Vektor-Datenbanken eine maximale Dimension haben.
 
@@ -220,67 +287,94 @@ def get_embedding(text, model="text-embedding-3-small", dimensions=None):
 
 Dokumente anhand der Kosinus-Ähnlichkeit zwischen der Suchanfrage-Embedding und den Dokument-Embeddings finden.
 
-```python
-# from openai.embeddings_utils import cosine_similarity # Veraltet, selbst implementieren oder numpy nutzen
-import numpy as np
+```javascript
+function cosineSimilarity(vecA, vecB) {
+  if (!vecA || !vecB || vecA.length !== vecB.length || vecA.length === 0) {
+    // console.error("Vektoren müssen existieren, gleiche Länge haben und nicht leer sein.");
+    return 0; // Oder Fehler werfen, oder NaN
+  }
 
-def cosine_similarity(vec1, vec2):
-    dot_product = np.dot(vec1, vec2)
-    norm_vec1 = np.linalg.norm(vec1)
-    norm_vec2 = np.linalg.norm(vec2)
-    if norm_vec1 == 0 or norm_vec2 == 0:
-        return 0.0 # oder Exception
-    return dot_product / (norm_vec1 * norm_vec2)
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
 
-# Annahme: df hat eine Spalte 'embedding' mit den Embeddings der Dokumente
-# def search_documents(df, query_text, n=3, model="text-embedding-3-small"):
-#     query_embedding = get_embedding(query_text, model=model)
-#     df['similarities'] = df.embedding.apply(lambda x: cosine_similarity(x, query_embedding))
-#     results = df.sort_values('similarities', ascending=False).head(n)
-#     return results
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
 
-# res = search_documents(df, 'köstliche Bohnen', n=3)
+  normA = Math.sqrt(normA);
+  normB = Math.sqrt(normB);
+
+  if (normA === 0 || normB === 0) {
+    return 0; // Division durch Null vermeiden, keine Ähnlichkeit wenn ein Vektor Null ist
+  }
+
+  return dotProduct / (normA * normB);
+}
+
+// Annahme: 'documents' ist ein Array von Objekten,
+// jedes mit einem Text und einem 'embedding'-Feld (Array von Zahlen)
+// const documents = [
+//   { id: 1, rule: "Regel A...", embedding: [/* ... */] },
+//   { id: 2, rule: "Regel B...", embedding: [/* ... */] },
+// ];
+
+// async function searchDocuments(docs, queryText, topN = 3, model = "text-embedding-3-small") {
+//   try {
+//     const queryEmbedding = await getAndStoreEmbedding(queryText, model); // Oder eine generische getEmbedding Funktion
+//     if (!queryEmbedding) return [];
+
+//     const resultsWithSimilarity = docs.map(doc => ({
+//       ...doc, // Behalte alle ursprünglichen Dokumentdaten
+//       similarity: cosineSimilarity(doc.embedding, queryEmbedding)
+//     }));
+
+//     // Sortiere nach Ähnlichkeit (absteigend)
+//     resultsWithSimilarity.sort((a, b) => b.similarity - a.similarity);
+
+//     return resultsWithSimilarity.slice(0, topN);
+//   } catch (error) {
+//     console.error("Fehler bei der Dokumentsuche:", error);
+//     return [];
+//   }
+// }
+
+// (async () => {
+//   // Vorab Embeddings für alle Dokumente erstellen und 'documents' füllen
+//   const sampleDocs = [
+//      { id: 1, rule: "React Komponente immer mit PascalCase benennen.", embedding: await getAndStoreEmbedding("React Komponente immer mit PascalCase benennen.") },
+//      { id: 2, rule: "Styles in separaten CSS-Modulen halten.", embedding: await getAndStoreEmbedding("Styles in separaten CSS-Modulen halten.") },
+//      { id: 3, rule: "Funktionskomponenten bevorzugen.", embedding: await getAndStoreEmbedding("Funktionskomponenten bevorzugen.") }
+//   ];
+//   const searchResults = await searchDocuments(sampleDocs, 'Wie style ich meine React Komponente?', 2);
+//   console.log(searchResults);
+// })();
 ```
 
 ### 4. Code-Suche
 
-Ähnlich wie Textsuche, aber auf Code-Snippets angewendet. Jede Funktion/Codeblock wird eingebettet. Natürliche Sprach-Query wird ebenfalls eingebettet und per Kosinus-Ähnlichkeit verglichen.
+Ähnlich wie Textsuche, aber auf Code-Snippets angewendet. Jede Funktion/Codeblock wird eingebettet. Eine natürliche Sprach-Query wird ebenfalls eingebettet und per Kosinus-Ähnlichkeit verglichen. Der Prozess ist analog zur Textsuche.
 
 ### 5. Empfehlungen (Recommendations)
 
-Embeddings von Items (z.B. Artikelbeschreibungen) berechnen. Für ein Quell-Item die Items mit der höchsten Kosinus-Ähnlichkeit (kleinste Distanz) finden.
+Embeddings von Items (z.B. Artikelbeschreibungen) berechnen. Für ein Quell-Item die Items mit der höchsten Kosinus-Ähnlichkeit (kleinste Distanz) finden. Wieder analog zur Textsuche.
 
 ### 6. Datenvisualisierung (z.B. mit t-SNE)
 
 Hochdimensionale Embeddings auf 2D reduzieren, um Cluster oder Beziehungen visuell darzustellen.
-
-```python
-# import pandas as pd
-# from sklearn.manifold import TSNE
-# import matplotlib.pyplot as plt
-# import matplotlib
-
-# Annahme: df['embedding'] enthält die Embeddings, df['Score'] die Bewertungen
-# matrix = np.vstack(df.embedding.values) # Stapelt die Embedding-Arrays
-
-# tsne = TSNE(n_components=2, perplexity=15, random_state=42, init='random', learning_rate=200)
-# vis_dims = tsne.fit_transform(matrix)
-
-# x = [v[0] for v in vis_dims]
-# y = [v[1] for v in vis_dims]
-# colors_map = {1:"red", 2:"darkorange", 3:"gold", 4:"turquoise", 5:"darkgreen"}
-# color_indices = df.Score.map(colors_map)
-
-# plt.scatter(x, y, c=color_indices, alpha=0.3)
-# plt.title("Visualisierung mit t-SNE")
-# plt.show()
-```
+In Node.js könnten hierfür Bibliotheken wie `tensorflow.js` (für t-SNE Implementierungen) und Plotting-Bibliotheken wie `chart.js` (im Browser) oder `node-chartjs` (serverseitig) verwendet werden. Der Prozess wäre:
+1.  Alle Embeddings sammeln.
+2.  Mit t-SNE auf 2 Dimensionen reduzieren.
+3.  Die 2D-Punkte plotten.
+Dies ist komplexer und sprengt den Rahmen eines einfachen Cheatsheet-Beispiels.
 
 ### 7. Embeddings als Feature Encoder für ML-Algorithmen
 
-Embeddings können als Input-Features für traditionelle ML-Modelle (Regression, Klassifikation) dienen, besonders wenn Freitext-Daten relevant sind.
-*   **Regression**: Vorhersage eines numerischen Werts (z.B. Review-Score).
-*   **Klassifikation**: Vorhersage einer Kategorie (z.B. Sentiment).
+Embeddings können als Input-Features für traditionelle ML-Modelle (Regression, Klassifikation) dienen, besonders wenn Freitext-Daten relevant sind. In Node.js könnten ML-Bibliotheken wie `tensorflow.js` oder spezialisiertere Bibliotheken genutzt werden.
+*   **Regression**: Vorhersage eines numerischen Werts.
+*   **Klassifikation**: Vorhersage einer Kategorie.
 
 ### 8. Zero-Shot Klassifikation
 
@@ -290,62 +384,92 @@ Klassifizierung ohne gelabelte Trainingsdaten.
 3.  Vergleiche das Text-Embedding mit allen Klassen-Embeddings (Kosinus-Ähnlichkeit).
 4.  Die Klasse mit der höchsten Ähnlichkeit wird vorhergesagt.
 
-```python
-# Beispiel: Sentiment-Klassifikation
-# labels = ['negativ', 'positiv']
-# label_embeddings = [get_embedding(label, model="text-embedding-3-small") for label in labels]
+```javascript
+// async function zeroShotClassify(textToClassify, classLabels, model = "text-embedding-3-small") {
+//   try {
+//     const textEmbedding = await getAndStoreEmbedding(textToClassify, model);
+//     if (!textEmbedding) return null;
 
-# def classify_sentiment(review_text, label_embeddings_list, model="text-embedding-3-small"):
-#     review_embedding = get_embedding(review_text, model=model)
-#     # similarity_negative = cosine_similarity(review_embedding, label_embeddings_list[0])
-#     # similarity_positive = cosine_similarity(review_embedding, label_embeddings_list[1])
-#     # return "positiv" if similarity_positive > similarity_negative else "negativ"
+//     let bestMatch = { label: null, similarity: -Infinity };
 
-# prediction = classify_sentiment("Das Essen war fantastisch!", label_embeddings)
+//     for (const label of classLabels) {
+//       const labelEmbedding = await getAndStoreEmbedding(label, model);
+//       if (labelEmbedding) {
+//         const similarity = cosineSimilarity(textEmbedding, labelEmbedding);
+//         if (similarity > bestMatch.similarity) {
+//           bestMatch = { label, similarity };
+//         }
+//       }
+//     }
+//     return bestMatch.label;
+//   } catch (error) {
+//     console.error("Fehler bei der Zero-Shot Klassifikation:", error);
+//     return null;
+//   }
+// }
+
+// (async () => {
+//   const labels = ['Technik', 'Sport', 'Wirtschaft'];
+//   const articleText = "Das neue Smartphone hat eine verbesserte Kamera und schnelleren Prozessor.";
+//   const predictedLabel = await zeroShotClassify(articleText, labels);
+//   console.log(`Der Artikel "${articleText.substring(0,30)}..." wurde als "${predictedLabel}" klassifiziert.`);
+// })();
 ```
 
 ### 9. Clustering
 
-Unüberwachtes Entdecken von Gruppen in Textdaten basierend auf der Ähnlichkeit der Embeddings (z.B. mit K-Means).
-
-```python
-# from sklearn.cluster import KMeans
-# matrix = np.vstack(df.embedding.values)
-# n_clusters = 4
-# kmeans = KMeans(n_clusters=n_clusters, init='k-means++', random_state=42, n_init='auto')
-# kmeans.fit(matrix)
-# df['Cluster'] = kmeans.labels_
-```
+Unüberwachtes Entdecken von Gruppen in Textdaten basierend auf der Ähnlichkeit der Embeddings (z.B. mit K-Means). In Node.js könnten Bibliotheken wie `ml-kmeans` oder andere aus dem `ml.js`-Ökosystem verwendet werden.
 
 ## FAQ
 
 ### Q: Token-Anzahl vor dem Embedden bestimmen?
-**A**: Nutze `tiktoken`. Für v3-Modelle (`text-embedding-3-small`, `text-embedding-3-large`) die Kodierung `cl100k_base` verwenden.
+**A**: Nutze `tiktoken`. Für Node.js ist das Paket `@dqbd/tiktoken` (ein WASM-Port des offiziellen Python `tiktoken`) sehr verbreitet und genau. Installiere es mit `npm install @dqbd/tiktoken`.
 
-```python
-import tiktoken
+```javascript
+import { get_encoding, encoding_for_model } from "@dqbd/tiktoken";
 
-def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
-    encoding = tiktoken.get_encoding(encoding_name)
-    num_tokens = len(encoding.encode(string))
-    return num_tokens
+// Für v3 Modelle wie text-embedding-3-small/-large: "cl100k_base"
+// Für ältere wie text-embedding-ada-002: auch "cl100k_base" oder spezifischer "text-embedding-ada-002"
+function numTokensFromString(string, modelName = "text-embedding-3-small") {
+    let encoding;
+    try {
+        // Versuche, die spezifische Kodierung für das Modell zu bekommen
+        // encoding_for_model wirft einen Fehler, wenn das Modell nicht bekannt ist.
+        encoding = encoding_for_model(modelName);
+    } catch (e) {
+        // Fallback auf eine generische Kodierung, wenn das Modell nicht direkt unterstützt wird
+        // console.warn(`Keine spezifische Kodierung für ${modelName} gefunden, verwende cl100k_base.`);
+        encoding = get_encoding("cl100k_base");
+    }
+    
+    const tokens = encoding.encode(string);
+    encoding.free(); // Wichtig, um WASM-Speicher freizugeben
+    return tokens.length;
+}
 
-# print(num_tokens_from_string("tiktoken ist super!"))
+// const text = "tiktoken ist super für Node.js!";
+// console.log(`"${text}" hat ${numTokensFromString(text, "text-embedding-3-small")} Tokens (Modell: text-embedding-3-small).`);
+// console.log(`"${text}" hat ${numTokensFromString(text, "gpt-4")} Tokens (Modell: gpt-4).`);
 ```
 
 ### Q: K nächste Embedding-Vektoren schnell finden?
-**A**: Vektor-Datenbanken verwenden (z.B. Pinecone, Weaviate, ChromaDB, FAISS).
+**A**: Vektor-Datenbanken verwenden (z.B. Pinecone, Weaviate, ChromaDB, Qdrant, Milvus, Supabase pgvector). Viele haben Node.js Client-Bibliotheken.
 
 ### Q: Welche Distanzfunktion verwenden?
 **A**: **Kosinus-Ähnlichkeit** wird empfohlen. OpenAI-Embeddings sind auf Länge 1 normalisiert, daher:
-*   Kosinus-Ähnlichkeit kann schneller per Skalarprodukt berechnet werden.
-*   Kosinus-Ähnlichkeit und Euklidische Distanz führen zu identischen Rankings.
+*   Kosinus-Ähnlichkeit kann schneller per Skalarprodukt berechnet werden (wenn beide Vektoren bereits normalisiert sind, ist das Skalarprodukt gleich der Kosinus-Ähnlichkeit).
+*   Kosinus-Ähnlichkeit und Euklidische Distanz führen zu identischen Rankings bei normalisierten Vektoren.
 
 ### Q: Darf ich meine Embeddings online teilen?
 **A**: Ja, Kunden besitzen Input und Output, inkl. Embeddings. Stelle sicher, dass der Inhalt keine Gesetze oder Nutzungsbedingungen verletzt.
 
 ### Q: Wissen v3 Embedding-Modelle über aktuelle Ereignisse Bescheid?
 **A**: Nein, die Modelle (`text-embedding-3-large` und `text-embedding-3-small`) haben kein Wissen über Ereignisse nach **September 2021**. Dies ist meist weniger limitierend als bei Textgenerierungsmodellen, kann aber in Grenzfällen die Performance beeinflussen.
+```
+
+```
+
+
 
 
   
